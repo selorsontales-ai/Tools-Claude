@@ -1,0 +1,7 @@
+# Ignore completed tools to save context tokens for Claude
+NeuroForge.jsx
+
+# Ignore Node.js and system files
+node_modules/
+.env
+.DS_Store
