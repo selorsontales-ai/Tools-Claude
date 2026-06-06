@@ -1,5 +1,15 @@
-# Ignore completed tools to save context tokens for Claude
+# System files
+.DS_Store
+Thumbs.db
+node_modules/
+dist/
+.env
+
+# Completed tools (ignored to save context tokens)
 NeuroForge.jsx
+
+# Agent handoff notes (internal AI context only)
+agent_handoff.md
 
 # Ignore Node.js and system files
 node_modules/

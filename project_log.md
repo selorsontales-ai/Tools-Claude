@@ -34,3 +34,16 @@
   - `SuperPromptBuilder.jsx` (Module 2/3): Reads data from `WorldBuilder`, handles context assembly, AI brainstorm, SuperPrompt generation, and AI Writing.
   - Both use the zero-key `fetch` to Anthropic API.
 - **Status**: Ready for user testing.
+
+## 2026-06-06 — New Project: YouTube Channel System
+- **Pivot**: User wants to build a much larger system — a professional YouTube workflow pipeline
+- **Created**: `project_info_youtube.md` — Full documentation of the YouTube pipeline (Tool 1: Blueprint Builder, Tool 2: Prompt Factory)
+- **Key concepts**:
+  - Pipeline architecture: each tool's output is the next tool's input
+  - Core philosophy: "Everything AI creates starts from a Prompt → build a Prompt Factory"
+  - Tool 1 (Channel Blueprint): Hierarchical suggestion system (no API cost) + AI analysis (API cost only at final step)
+  - Tool 2 (Prompt Factory): Takes blueprint → generates mass prompts for any AI
+  - Nút "Update": Claude tự phát hiện model/tính năng mới của mình và cập nhật form
+- **Updated**: `claude_comm.md`, `required_reading.md` for new project
+- **Created**: `agent_handoff.md` (in `.gitignore`) — Internal AI context file for conversation switching
+- **Status**: Awaiting Claude's response on Tool 1 architecture
