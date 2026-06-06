@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hướng Dẫn Chi Tiết - Channel Blueprint Builder</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+        
+        :root {
+            --primary: #dc2626;
+            --primary-light: #fef2f2;
+            --text-dark: #1c1917;
+            --text-gray: #57534e;
+            --text-light: #a8a29e;
+            --bg-color: #fafaf9;
+            --card-bg: #ffffff;
+            --border: #e7e5e4;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            line-height: 1.6;
+            margin: 0;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+            color: var(--text-dark);
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            color: var(--text-gray);
+            font-size: 1.1rem;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+
+        .cat-card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+
+        .cat-header {
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        .cat-body {
+            padding: 20px;
+            background: #fdfcfb;
+        }
+
+        .option-group {
+            margin-bottom: 16px;
+        }
+
+        .option-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .option-title {
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 6px;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .option-desc {
+            font-size: 0.95rem;
+            color: var(--text-gray);
+            margin-bottom: 8px;
+            padding-left: 20px;
+        }
+
+        .sub-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding-left: 20px;
+        }
+
+        .chip {
+            background: #f5f5f4;
+            border: 1px solid #d6d3d1;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: #44403c;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 10px;
+        }
+
+        .important-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            padding: 16px 20px;
+            border-radius: 0 8px 8px 0;
+            margin-top: 20px;
+            font-size: 0.95rem;
+            color: #92400e;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div style="font-size: 3rem; margin-bottom: 10px;">📚</div>
+        <h1>Từ Điển Lựa Chọn: Channel Blueprint</h1>
+        <p>Hướng dẫn giải thích cực kỳ chi tiết ý nghĩa của từng lựa chọn trong Hệ thống gợi ý phân tầng, giúp bạn đưa ra quyết định chiến lược chính xác nhất cho kênh YouTube của mình.</p>
+    </div>
+
+    <div class="important-box" style="margin-bottom: 30px;">
+        <strong>💡 Mẹo sử dụng:</strong> Hệ thống này cho phép <strong>chọn nhiều (multi-select)</strong>. Ví dụ bạn có thể vừa chọn "Faceless" vừa chọn "Shorts-first". Nếu có danh mục nào bạn không rành, hãy bỏ qua, AI sẽ tự động phân tích và điền thay bạn ở bước cuối!
+    </div>
+
+    <h2>10 Danh Mục Chiến Lược</h2>
+
+    <!-- 1. Niche -->
+    <div class="cat-card" style="border-color: #fecaca;">
+        <div class="cat-header" style="background: #fff1f2; color: #e11d48;">
+            🎯 1. Chủ đề / Niche (Lĩnh vực chính)
+        </div>
+        <div class="cat-body">
+            <p style="margin-top: 0; color: var(--text-gray); font-size: 0.95rem;">Lựa chọn này định hình nội dung cốt lõi của kênh. Niche càng hẹp (ví dụ: Thay vì "Công nghệ" chung chung, chọn "SaaS tools"), tệp khán giả càng chất lượng và CPM (tiền quảng cáo) càng cao.</p>
+            
+            <div class="option-group">
+                <div class="option-title">Công nghệ (Tech)</div>
+                <div class="sub-options">
+                    <span class="chip">AI & Machine Learning</span>
+                    <span class="chip">Lập trình / Dev</span>
+                    <span class="chip">Review thiết bị</span>
+                    <span class="chip">SaaS & Productivity</span>
+                    <span class="chip">Web3 / Blockchain</span>
+                </div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">Tài chính / Đầu tư (Finance) - <em>Niche có CPM cao nhất</em></div>
+                <div class="sub-options">
+                    <span class="chip">Chứng khoán</span>
+                    <span class="chip">Crypto</span>
+                    <span class="chip">Tài chính cá nhân</span>
+                    <span class="chip">Bất động sản</span>
+                    <span class="chip">Kinh doanh / Khởi nghiệp</span>
+                </div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">Giáo dục (Education)</div>
+                <div class="sub-options">
+                    <span class="chip">Học ngoại ngữ</span>
+                    <span class="chip">Kỹ năng mềm</span>
+                    <span class="chip">Lịch sử & Văn hóa</span>
+                    <span class="chip">Giải thích khái niệm</span>
+                </div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">Giải trí, Lifestyle, Gaming, Sức khỏe...</div>
+                <div class="option-desc">Các nhóm chủ đề có tính giải trí cao, dễ đạt lượng view lớn (Mass appeal) nhưng thường có CPM thấp hơn so với Tài chính/Công nghệ.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Format -->
+    <div class="cat-card" style="border-color: #e9d5ff;">
+        <div class="cat-header" style="background: #f5f3ff; color: #7c3aed;">
+            🎬 2. Định dạng nội dung (Format)
+        </div>
+        <div class="cat-body">
+            <p style="margin-top: 0; color: var(--text-gray); font-size: 0.95rem;">Cách bạn sẽ truyền tải nội dung đến khán giả. Bạn có muốn lộ mặt không? Hay chỉ dùng giọng nói?</p>
+            
+            <div class="option-group">
+                <div class="option-title">Faceless Channel (Kênh giấu mặt)</div>
+                <div class="option-desc">Phù hợp cho người hướng nội, thiếu thiết bị quay phim, hoặc muốn dùng AI làm 100%.</div>
+                <div class="sub-options">
+                    <span class="chip">AI Voiceover (Dùng giọng AI)</span>
+                    <span class="chip">Text on screen (Chỉ chữ chạy trên màn hình)</span>
+                    <span class="chip">Stock footage (Ghép video có sẵn)</span>
+                    <span class="chip">Animation (Làm hoạt hình)</span>
+                </div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">Talking Head (Có lộ mặt)</div>
+                <div class="option-desc">Bạn ngồi trước camera và nói chuyện. Xây dựng thương hiệu cá nhân (Personal brand) tốt nhất.</div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">Tutorial / How-to (Hướng dẫn)</div>
+                <div class="option-desc">Quay màn hình máy tính (Screencast) hướng dẫn từng bước. Rất tốt cho tìm kiếm tự nhiên (Evergreen search).</div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">Vlog / Podcast / Shorts-first</div>
+                <div class="option-desc">Shorts-first: Chiến lược chỉ làm video ngắn dưới 60s để tận dụng luồng view khổng lồ từ YouTube Shorts.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Audience -->
+    <div class="cat-card" style="border-color: #bae6fd;">
+        <div class="cat-header" style="background: #f0f9ff; color: #0284c7;">
+            👥 3. Đối tượng khán giả (Audience)
+        </div>
+        <div class="cat-body">
+            <p style="margin-top: 0; color: var(--text-gray); font-size: 0.95rem;">Kênh của bạn làm ra để AI xem? Không, để con người xem! Xác định rõ ai sẽ xem video để điều chỉnh giọng văn (Tone of voice).</p>
+            
+            <div class="option-group">
+                <div class="option-title">Gen Z & Millennial</div>
+                <div class="option-desc">Gen Z thích nhịp độ nhanh, meme, giải trí. Millennial (Bố mẹ trẻ, người đã đi làm) thích nội dung thực tế, giải quyết vấn đề nhanh gọn.</div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">Chuyên gia / Professional (B2B)</div>
+                <div class="option-desc">Hướng tới Marketer, Developer, Doanh nhân... Nội dung cần sâu sắc, số liệu rõ ràng. Rất dễ bán sản phẩm giá cao (High-ticket).</div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">Đại chúng (General Public)</div>
+                <div class="option-desc">Bất cứ ai cũng xem được. View cao nhưng khó bán hàng đặc thù.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Monetization -->
+    <div class="cat-card" style="border-color: #a7f3d0;">
+        <div class="cat-header" style="background: #ecfdf5; color: #059669;">
+            💰 4. Chiến lược kiếm tiền (Monetization)
+        </div>
+        <div class="cat-body">
+            <p style="margin-top: 0; color: var(--text-gray); font-size: 0.95rem;">YouTube không chỉ có mỗi tiền quảng cáo. Đừng để view bị lãng phí!</p>
+            
+            <div class="option-group">
+                <div class="option-title">AdSense (Tiền quảng cáo YouTube trả)</div>
+                <div class="option-desc">Tùy vào Niche mà 1.000 view bạn sẽ được trả 1$ hay 10$.</div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">Sponsorship (Nhận tài trợ)</div>
+                <div class="option-desc">Các nhãn hàng trả tiền để bạn nhắc tên họ trong video (Direct brand deals).</div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">Affiliate Marketing (Tiếp thị liên kết)</div>
+                <div class="option-desc">Để link mua hàng Amazon, Shopee hoặc link tải phần mềm (SaaS) dưới mô tả. Ăn hoa hồng.</div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">Digital Products (Sản phẩm số)</div>
+                <div class="option-desc">Bán khóa học online, E-book, Templates (Notion, CapCut). Đây là mỏ vàng thực sự của YouTuber.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Language -->
+    <div class="cat-card" style="border-color: #fef08a;">
+        <div class="cat-header" style="background: #fefce8; color: #b45309;">
+            🌍 5. Ngôn ngữ & Thị trường (Language)
+        </div>
+        <div class="cat-body">
+            <p style="margin-top: 0; color: var(--text-gray); font-size: 0.95rem;">Quyết định thị trường bạn muốn đánh. Tiền quảng cáo ở Mỹ cao gấp 10-20 lần ở Việt Nam.</p>
+            
+            <div class="option-group">
+                <div class="option-title">Thị trường nội địa (Tiếng Việt)</div>
+                <div class="option-desc">Dễ tiếp cận, hiểu văn hóa. Nhưng giới hạn lượng người xem và CPM thấp.</div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">Thị trường Global (Tiếng Anh)</div>
+                <div class="option-desc">Cạnh tranh khốc liệt nhưng thu nhập khổng lồ. Có thể dùng AI để lồng tiếng (Dubbing) nếu tiếng Anh không tốt.</div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">Song ngữ (Bilingual)</div>
+                <div class="option-desc">Nói tiếng Việt nhưng thêm phụ đề (Subtitle) tiếng Anh chuẩn để mở rộng tệp khán giả.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6. Production & 7. Frequency -->
+    <div class="cat-card" style="border-color: #fbcfe8;">
+        <div class="cat-header" style="background: #fdf4ff; color: #c026d3;">
+            🎨 6. Sản xuất & 📅 7. Tần suất (Production & Frequency)
+        </div>
+        <div class="cat-body">
+            <p style="margin-top: 0; color: var(--text-gray); font-size: 0.95rem;">Bạn có bao nhiêu thời gian và tiền bạc để duy trì kênh này?</p>
+            
+            <div class="option-group">
+                <div class="option-title">Low-budget DIY (Làm một mình, vốn ít)</div>
+                <div class="option-desc">Quay bằng điện thoại, dùng app CapCut free. Hoặc quay màn hình laptop. Thích hợp người mới.</div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">AI-assisted production (Dùng AI làm trợ lý)</div>
+                <div class="option-desc">Xu hướng 2024-2025: Dùng Claude/ChatGPT viết kịch bản, dùng Midjourney tạo hình, dùng ElevenLabs đọc giọng. Tiết kiệm 80% thời gian!</div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">Tần suất đăng (Frequency)</div>
+                <div class="option-desc">Đăng 1-2 video/tuần là lý tưởng để giữ tương tác. Đăng quá nhiều dễ bị burn-out (kiệt sức).</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 8, 9, 10 -->
+    <div class="cat-card" style="border-color: #d8b4fe;">
+        <div class="cat-header" style="background: #f5f3ff; color: #1c1917;">
+            🧩 Các yếu tố tối ưu cuối cùng (Duration, USP, Repurpose)
+        </div>
+        <div class="cat-body">
+            <div class="option-group">
+                <div class="option-title">Độ dài video (Duration)</div>
+                <div class="option-desc">Shorts (<60s) để hút sub. Mid-form (8-15p) để bật kiếm tiền tốt nhất. Long-form (Podcast >1h) để xây dựng lòng tin tuyệt đối.</div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">USP (Unique Selling Proposition)</div>
+                <div class="option-desc">Điều gì khiến khán giả nhớ đến bạn? Hài hước? Phân tích cực sâu bằng Data? Lối kể chuyện (Storytelling) cuốn hút? Hãy chọn một vũ khí chính!</div>
+            </div>
+            <div class="option-group">
+                <div class="option-title">Chiến lược tái chế (Repurpose)</div>
+                <div class="option-desc">Đừng làm video xong rồi vứt. Hãy dùng AI băm video 15 phút ra thành: 5 clip TikTok, 1 bài Blog, 1 thread Twitter. 1 công làm = 4 kênh hưởng.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="important-box" style="margin-top: 40px;">
+        <strong>🚀 Sẵn sàng chưa?</strong><br>
+        Bây giờ bạn đã nắm rõ ý nghĩa của mọi lựa chọn. Hãy quay lại Tool 1, click chọn những mục bạn muốn, điền một ý tưởng mồi và bấm <strong>Tạo Blueprint</strong> để xem Claude biến hóa ra sao nhé!
+    </div>
+</div>
+
+</body>
+</html>

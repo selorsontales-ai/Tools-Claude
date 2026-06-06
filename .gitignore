@@ -5,12 +5,10 @@ node_modules/
 dist/
 .env
 
-# Completed tools (save Claude's context tokens)
+# Completed tools NOT in active pipeline (save Claude's context tokens)
 NeuroForge.jsx
 WorldBuilder.jsx
 SuperPromptBuilder.jsx
-ChannelBlueprint_Tool1.jsx
-guide_tool1.html
 
 # Internal AI context (not for Claude)
 agent_handoff.md
