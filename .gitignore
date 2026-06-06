@@ -13,6 +13,7 @@ guide_tool1.html
 
 # Internal AI context (not for Claude)
 agent_handoff.md
+Claude.md
 
 # Completed project docs (no longer active)
 project_info_co_writer.md
