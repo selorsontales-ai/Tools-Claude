@@ -214,3 +214,4 @@ const r = await window.storage.get(KEY);              // khôi phục: r?.value
 | 2026-06-06 | Map Effort → `thinking.budget_tokens`, gộp Effort vào trong Thinking | Effort độc lập qua `output_config`; Thinking riêng, adaptive |
 | 2026-06-06 | Gửi `temperature: 1` cho thinking | 4.7/4.8 KHÔNG nhận temperature |
 | 2026-06-06 | Coi `budget_tokens` là cách bật thinking | Deprecated trên 4.6+; dùng `{type:"adaptive"}` |
+| 2026-06-06 | Dùng `type:"enabled"` cho 4.6+ | Đúng là `type:"adaptive"` — "enabled" trả lỗi 400 |
