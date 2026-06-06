@@ -1132,9 +1132,9 @@ JSON phải có đúng cấu trúc sau (tất cả trường bằng tiếng Vi�
 
     const cfg = {
       model: modelId,
-      maxTokens: thinkingOn ? 1000 : curEffort.budget,
+      maxTokens: 16000,        // luôn đặt đủ lớn — output_config.effort mới điều khiển chất lượng
       thinkingOn,
-      effortBudget: curEffort.budget,
+      effortBudget: curEffort.budget,  // dùng để map → effort string trong callClaude
     };
 
     try {
@@ -1169,7 +1169,7 @@ Trả về JSON object (KHÔNG markdown, KHÔNG preamble):
     try {
       let raw = "";
       await callClaude(system, user, (text) => { raw = text; onUpdateLog(text); }, {
-        model: modelId, maxTokens: 1000, thinkingOn: false,
+        model: modelId, maxTokens: 8000, thinkingOn: false,
       });
       const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       const parsed = JSON.parse(clean);
@@ -1325,13 +1325,19 @@ Trả về JSON object (KHÔNG markdown, KHÔNG preamble):
 
 // ─── EXPORT BLUEPRINT JSON ──────────────────────────────────────────────────
 function exportBlueprint(blueprint, name) {
-  const blob = new Blob([JSON.stringify(blueprint, null, 2)], { type: "application/json" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
-  a.download = (name || "channel") + "_blueprint_" + Date.now() + ".json";
-  a.click();
-  URL.revokeObjectURL(url);
+  try {
+    const blob = new Blob([JSON.stringify(blueprint, null, 2)], { type: "application/json" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = (name || "channel") + "_blueprint_" + Date.now() + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  } catch (err) {
+    console.error("exportBlueprint error:", err);
+  }
 }
 
 // ─── BLUEPRINT RESULT COMPONENT ─────────────────────────────────────────────
@@ -1713,12 +1719,18 @@ export default function App() {
       checkpointName,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
-    a.download = (checkpointName || "blueprint") + "_checkpoint_" + Date.now() + ".json";
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = (checkpointName || "blueprint") + "_checkpoint_" + Date.now() + ".json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (err) {
+      console.error("exportCheckpoint error:", err);
+    }
     toast.show("Checkpoint đã export ✓");
   };
 
