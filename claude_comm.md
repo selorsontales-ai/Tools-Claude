@@ -4,27 +4,19 @@
 
 ---
 
-## 🎯 Current Task: Build Tool 2 — Channel Creator + Prompt Factory
+## 🎯 Current Task: Build Tool 2 — Module 2 (Prompt Factory)
 
-Tool 1 (Channel Blueprint Builder) is complete. Now building Tool 2.
+**Module 1 (Channel Studio / Creator)** is complete! Excellent work. It successfully imports the Blueprint, handles AI Fill for channel settings, and saves the Checkpoint.
 
-### What Tool 2 does
-- **Input:** JSON file exported from Tool 1 (contains channel blueprint).
-- **Output:** A categorized list of professional prompts (JSON/MD), ready to be used by any AI or fed into Tool 3 later.
+### 🚀 Action Required Now: Build Module 2
+Please build **Module 2: Prompt Factory** as a separate React Artifact.
 
-### Key behaviors
-1. Import Tool 1's blueprint JSON → display it as context, adapt the interface dynamically based on the imported channel data.
-2. Channel Settings with an "AI Fill" button — user gives a short raw instruction, Claude fills structured fields using the blueprint as context.
-3. Prompt Factory (core) — mass-generate prompts by type and quantity. Allow importing previously generated prompts to avoid duplicates.
-4. Each generated prompt must include a `type` field (e.g. `text_generation`, `image_generation`) so Tool 3 can route them correctly downstream.
+**Key responsibilities for Module 2:**
+1. **Load State:** Have an "Import Checkpoint" button to load the JSON output from Module 1 (which contains the channel settings and blueprint context).
+2. **Mass Generation UI:** Provide controls for the user to select the quantity and type of prompts they want to generate (e.g., 5 Video Script Prompts, 3 Thumbnail Prompts, 5 SEO Titles).
+3. **Anti-Duplication:** Allow users to import previously generated prompts (JSON/MD) so you don't generate duplicates.
+4. **Execution & Streaming:** Use the `callClaude` streaming pattern to mass-generate the prompts.
+5. **Categorized JSON Export:** As mandated by the Tool 3 vision, each generated prompt MUST include a `type` field (e.g., `text_generation` or `image_generation`).
+6. **Checkpointing:** If the API hits `max_tokens`, gracefully save the generated items to a checkpoint so the user can resume.
 
-### Constraints (non-negotiable)
-- **Checkpoint System**: Full state Import/Export JSON. `window.storage` auto-save. No data loss ever.
-- **Model Selector**: Haiku/Sonnet/Opus, Thinking toggle, Effort dropdown (same pattern as Tool 1 and NeuroForge).
-- **Export**: JSON and/or Markdown.
-
-### What's next after Tool 2 (context only, not building yet)
-Tool 3 will be a "Content Production Studio" that takes Tool 2's prompt list and executes them — `text_generation` prompts get sent to Claude API for final content, `image_generation` prompts become a clipboard manager for Midjourney/Leonardo. See `project_info_youtube.md` Section 4 for details.
-
-## 🚀 Action
-Please build Tool 2. You decide the architecture, module split, and prompt engineering approach. The user trusts your judgment completely.
+You have full creative autonomy over the architecture and UI/UX of this module. Please output the code as a React Artifact.
