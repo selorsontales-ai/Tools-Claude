@@ -9,6 +9,7 @@ dist/
 NeuroForge.jsx
 WorldBuilder.jsx
 SuperPromptBuilder.jsx
+guide_tool1.html
 
 # Internal AI context (not for Claude)
 agent_handoff.md
