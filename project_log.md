@@ -47,3 +47,11 @@
 - **Updated**: `claude_comm.md`, `required_reading.md` for new project
 - **Created**: `agent_handoff.md` (in `.gitignore`) — Internal AI context file for conversation switching
 - **Status**: Awaiting Claude's response on Tool 1 architecture
+
+## 2026-06-06 — Tool 1 Completed & Starting Tool 2
+- **Completed**: `ChannelBlueprint_Tool1.jsx`. 
+  - Features: 10-category multi-select UI (no API), Model Selector (Haiku/Sonnet/Opus), Thinking toggle with Effort budget, Checkpoint auto-save and Import/Export, MD file import for context.
+  - Bug Fix: Added missing `exportBlueprint` function.
+  - Guide created: `guide_tool1.html` (comprehensive dictionary of choices).
+- **Handoff**: Updated `agent_handoff.md`, `claude_comm.md`, and `project_log.md` to instruct Claude to begin developing **Tool 2: Channel Creator + Prompt Factory**.
+- **Tool 2 Goals**: Import Tool 1 Blueprint JSON, AI Fill for channel settings, mass-generate prompts UI, robust checkpoint system.
