@@ -64,9 +64,8 @@
 - **Communication style change**: Claude is given full creative autonomy. We only specify goals, inputs, outputs, and hard constraints. No implementation directives.
 - **Status**: Ready to push to Git for Claude to begin Tool 2 development.
 
-## 2026-06-06 — Tool 2 (Module 1) Completed, Starting Module 2
-- **Completed**: `ChannelStudio_Tool2.jsx` (Module 1).
-  - Handles Channel Blueprint import, AI Fill for channel settings, and checkpointing.
-- **Handoff**: Updated `claude_comm.md` to instruct Claude to build **Module 2 (Prompt Factory)**.
-  - Specified requirements: Checkpoint import (from Module 1), Mass Generation UI, Anti-Duplication, and Categorized JSON Export (`type` field for downstream routing).
+## 2026-06-06 — Tool 2 (Module 1 & 2) Completed
+- **Completed**: `ChannelStudio_Tool2.jsx` (Module 1) and `PromptFactory_Tool2.jsx` (Module 2).
+  - Module 1 handles Channel Blueprint import, AI Fill for channel settings, and checkpointing.
+  - Module 2 handles prompt generation in batches, anti-duplication, and JSON export with `type` labels.
 
