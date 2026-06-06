@@ -16,6 +16,14 @@ We're starting a new project. Full context is in `project_info_youtube.md`.
 
 Both tools need: checkpoint system, import/export JSON, model selection (like NeuroForge), thinking mode toggle.
 
+## ⚠️ Iron Rule: Checkpoint System
+
+**Every tool MUST have a robust Checkpoint Import/Export system.** This is non-negotiable.
+
+Why: The user has multiple Claude free accounts. If a tool runs out of tokens mid-operation → switch to another account (that already has the tool installed) → import checkpoint → continue immediately. Or wait a few hours for limit reset → reopen tool → import checkpoint → continue.
+
+The checkpoint must save the COMPLETE current state: all selections, user inputs, AI outputs, progress, everything. No data should ever be lost.
+
 ## What I Need
 
 Please design **Tool 1 first**. Propose how you'd split it into buildable modules, and start with Module 1 when ready. Remember: the hierarchical suggestion UI must NOT cost API calls — only the final "Generate Blueprint" button calls the API.
