@@ -6,7 +6,7 @@ dist/
 .env
 
 # Completed tools (ignored to save context tokens)
-NeuroForge.jsx
+# NeuroForge.jsx
 
 # Agent handoff notes (internal AI context only)
 agent_handoff.md
