@@ -110,7 +110,7 @@ Quy tắc theo đời:
   (gửi temperature vào → lỗi hoặc bị bỏ qua kèm cảnh báo).
 - **Đời cũ 4.5 trở về trước:** mới dùng `thinking: { type: "enabled", budget_tokens: N }` + `temperature: 1`.
 
-Vì tool này chỉ xài model 4.5+ nên: **không gửi budget_tokens, không gửi temperature.** Chỉ
+Vì tool này chủ yếu xài model 4.6+ nên: **không gửi budget_tokens, không gửi temperature.** Chỉ
 `{ type: "adaptive" }`.
 
 ---
@@ -198,7 +198,7 @@ const r = await window.storage.get(KEY);              // khôi phục: r?.value
 
 - [ ] Model ID có nằm trong bảng mục 2 không? (không tự bịa)
 - [ ] Có gửi `output_config.effort` + header `effort-2025-11-24` không?
-- [ ] Nếu bật thinking: chỉ `{ type: "adaptive" }`, KHÔNG budget_tokens, KHÔNG temperature?
+- [ ] Nếu bật thinking: chỉ `{ type: "adaptive" }` (cho 4.6+), KHÔNG budget_tokens, KHÔNG temperature?
 - [ ] KHÔNG truyền API key thủ công?
 - [ ] Stream: chỉ lấy `text_delta`, bỏ `thinking_delta`?
 - [ ] web_search: gọi non-stream, lọc block theo `type`?
