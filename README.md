@@ -1,13 +1,17 @@
 # Tools for Claude Artifacts
 
-This repository is dedicated to creating and maintaining React-based AI tools designed to run directly within the **Claude Artifacts** environment using the "Anthropic API in Artifacts" technique (zero-key authentication via Claude's iframe).
+React-based AI tools running inside **Claude Artifacts** using zero-key Anthropic API.
 
 ## ⚠️ Start Here
-**Always read `required_reading.md` first** — it lists the exact files you need to read for the current project iteration. This saves context tokens.
+**Read `required_reading.md` first** — it lists the exact files needed for the current iteration.
 
 ## Project Structure
-- `required_reading.md`: **Read this first.** Lists files Claude must read for the current iteration.
-- `project_info_co_writer.md`: Detailed documentation about the AI Co-Writer system and project goals.
-- `project_log.md`: Development log tracking tool creation, updates, and bug fixes.
-- `claude_comm.md`: Direct communication channel for coordinating tasks with Claude. (Cleared after each iteration).
-- Completed tools (e.g., `NeuroForge.jsx`) are ignored via `.gitignore` to save context tokens.
+- `required_reading.md` — **Read this first.** Minimizes context token usage.
+- `project_info_youtube.md` — YouTube pipeline documentation (Tool 1→2→3).
+- `project_log.md` — Development log (creation, updates, bug fixes).
+- `claude_comm.md` — Current task instructions. Cleared after each cycle.
+
+## Current Status
+- ✅ Tool 1: Channel Blueprint Builder — **DONE**
+- 🔨 Tool 2: Channel Creator + Prompt Factory — **IN PROGRESS**
+- 📋 Tool 3: Content Production Studio — **PLANNED**

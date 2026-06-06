@@ -9,18 +9,16 @@
 ## 1. Tổng Quan Pipeline
 
 ```
-[Tool 1: Channel Blueprint] → JSON bộ khung
+[Tool 1: Channel Blueprint] → JSON bộ khung          ✅ DONE
         ↓
-[Tool 2: Channel Creator + Prompt Factory] → JSON/MD prompts
+[Tool 2: Channel Creator + Prompt Factory] → JSON/MD prompts   ← CURRENT
         ↓
-[Tool 3: Content Generator] → (tương lai)
+[Tool 3: Content Production Studio] → Final content (scripts, titles, SEO, thumbnail prompt clipboard)
         ↓
-[Tool 4: Post-Production] → (tương lai)
-        ↓
-...
+[Tool 4+: Post-Production, Analytics...] → (tương lai)
 ```
 
-Hiện tại chỉ tập trung xây **Tool 1** và **Tool 2**. Các tool sau sẽ xây sau khi 2 tool đầu hoàn chỉnh.
+Hiện tại tập trung xây **Tool 2**. Tool 1 đã hoàn thành.
 
 ---
 
@@ -117,7 +115,27 @@ Nhận bộ khung kênh (JSON từ Tool 1) → cho phép người dùng thiết 
 
 ---
 
-## 4. Yêu Cầu Kỹ Thuật Chung
+## 4. Tool 3: Content Production Studio (Tầm nhìn — Chưa xây)
+
+### 4.1 Mục đích
+Nhận danh sách prompts từ Tool 2 → thực thi tạo nội dung cuối cùng.
+
+### 4.2 Input
+File JSON chứa danh sách prompts từ Tool 2. Mỗi prompt phải có trường phân loại rõ ràng (`type`) để Tool 3 biết cách xử lý:
+- `text_generation` → Tool 3 sẽ gọi Claude API để sinh nội dung (script, title, SEO description...)
+- `image_generation` → Tool 3 chỉ hiển thị prompt + nút Copy để user mang đi Midjourney/Leonardo/DALL-E
+
+### 4.3 Output
+- Kịch bản video hoàn chỉnh (Markdown)
+- Tiêu đề + mô tả SEO
+- Clipboard manager cho thumbnail prompts
+
+### 4.4 Ảnh hưởng đến Tool 2
+> **Quan trọng:** Tool 2 khi export JSON phải phân loại rõ `type` của từng prompt. Đây là yêu cầu thiết kế dữ liệu, không phải yêu cầu UI.
+
+---
+
+## 5. Yêu Cầu Kỹ Thuật Chung
 
 ### 4.1 Pattern từ NeuroForge (tham khảo)
 - Model selection: Haiku 4.5, Sonnet 4.6, Opus 4.6 (với pricing display)

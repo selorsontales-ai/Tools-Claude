@@ -55,3 +55,12 @@
   - Guide created: `guide_tool1.html` (comprehensive dictionary of choices).
 - **Handoff**: Updated `agent_handoff.md`, `claude_comm.md`, and `project_log.md` to instruct Claude to begin developing **Tool 2: Channel Creator + Prompt Factory**.
 - **Tool 2 Goals**: Import Tool 1 Blueprint JSON, AI Fill for channel settings, mass-generate prompts UI, robust checkpoint system.
+
+## 2026-06-06 — Tool 2 Roadmap & Tool 3 Vision
+- **Roadmap discussion**: Finalized Tool 2 scope — it is purely a "Prompt Factory". It does NOT generate final content. It only produces categorized, professional prompts.
+- **Tool 3 vision added**: "Content Production Studio" — takes Tool 2's prompt list and executes them. `text_generation` prompts → Claude API for scripts/titles. `image_generation` prompts → clipboard manager for Midjourney/Leonardo.
+- **Design constraint for Tool 2**: Each exported prompt must include a `type` field so Tool 3 can route them downstream.
+- **Updated**: `project_info_youtube.md` (added Section 4: Tool 3 vision), `.gitignore` (ignore all completed tools + inactive docs), `claude_comm.md` (rewritten: concise, non-directive, only Input/Output specs), `required_reading.md`.
+- **Communication style change**: Claude is given full creative autonomy. We only specify goals, inputs, outputs, and hard constraints. No implementation directives.
+- **Status**: Ready to push to Git for Claude to begin Tool 2 development.
+
