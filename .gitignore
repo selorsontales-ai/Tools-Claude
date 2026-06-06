@@ -17,3 +17,7 @@ agent_handoff.md
 
 # Completed project docs (no longer active)
 project_info_co_writer.md
+
+# Mock data & AI rules
+mock_data/
+.ai_rules.md

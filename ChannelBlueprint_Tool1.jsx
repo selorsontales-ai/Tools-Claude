@@ -616,7 +616,31 @@ function SelectionSummary({ selections }) {
 }
 
 // ─── MODEL DEFINITIONS (NeuroForge) ─────────────────────────────────────────
-const MODELS = [
+// Color palette để gán cho model mới phát hiện qua web_search
+const MODEL_COLORS = ["#d97706", "#2563eb", "#7c3aed", "#0891b2", "#16a34a", "#dc2626", "#c026d3", "#0284c7"];
+
+// Suy ra model có hỗ trợ Extended Thinking dựa trên ID
+// Claude.md mục 5: model đời 4.6+ có adaptive thinking. Haiku 4.5 và đời cũ thì không.
+function inferThinkingSupport(id) {
+  if (!id) return false;
+  const lower = id.toLowerCase();
+  // Haiku 4.5 (và Haiku đời cũ) — không thinking
+  if (lower.includes("haiku")) return false;
+  // Match đời 4.6, 4.7, 4.8, 5.x, 6.x... → có thinking
+  // Sonnet 4.6 / Opus 4.6 / Opus 4.7 / Opus 4.8 → true
+  const match = lower.match(/-(\d+)-(\d+)/);
+  if (match) {
+    const major = parseInt(match[1], 10);
+    const minor = parseInt(match[2], 10);
+    if (major > 4) return true;
+    if (major === 4 && minor >= 6) return true;
+    return false;
+  }
+  // Default: assume true (model mới chưa biết → ưu tiên bật tính năng)
+  return true;
+}
+
+const DEFAULT_MODELS = [
   {
     id: "claude-haiku-4-5-20251001",
     label: "Haiku 4.5",
@@ -682,8 +706,10 @@ async function callClaude(system, user, onChunk, cfg = {}) {
     output_config: { effort: effortLevel },
   };
   if (thinkingOn) {
-    // Adaptive thinking cho model 4.6/4.7/4.8 — KHÔNG budget_tokens, KHÔNG temperature
-    body.thinking = { type: "enabled" };
+    // Model 4.6+ dùng adaptive thinking (KHÔNG "enabled", KHÔNG budget_tokens, KHÔNG temperature).
+    // Nguồn: plugins/security-guidance/hooks/llm.py — mirror Claude Code chính thức.
+    // Gửi "enabled" cho 4.6+ trả 400 "thinking.type.enabled is not supported".
+    body.thinking = { type: "adaptive" };
   }
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -723,11 +749,121 @@ async function callClaude(system, user, onChunk, cfg = {}) {
 }
 
 
+// ─── CLAUDE API + WEB SEARCH (non-stream) — Claude.md mục 7 ─────────────────
+// Dùng cho tính năng "Cập nhật Model" — Claude tự web_search docs.anthropic.com
+// rồi trả về JSON danh sách model hiện hành.
+async function callClaudeWithSearch(system, user, cfg = {}) {
+  const {
+    model  = "claude-sonnet-4-6",
+    effort = "medium",
+    maxTokens = 8000,
+  } = cfg;
+
+  const body = {
+    model,
+    max_tokens: maxTokens,
+    stream: false,  // Claude.md mục 7: web_search nên gọi non-stream
+    system,
+    messages: [{ role: "user", content: user }],
+    output_config: { effort },
+    tools: [{ type: "web_search_20250305", name: "web_search" }],
+  };
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "anthropic-beta": "effort-2025-11-24",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`API ${res.status}: ${err.slice(0, 200)}`);
+  }
+  const data = await res.json();
+
+  // Claude.md mục 7: gom text từ các block type === "text" (không dựa vị trí)
+  const textParts = (data.content || [])
+    .filter(b => b.type === "text")
+    .map(b => b.text || "")
+    .join("\n");
+
+  // Đếm số web_search calls để báo cáo
+  const searchCount = (data.content || []).filter(b => b.type === "server_tool_use").length;
+
+  return { text: textParts, raw: data, searchCount };
+}
+
+// ─── runUpdateModels — gọi Claude+search, parse JSON, merge với palette ────
+async function runUpdateModels({ model, effort, onLog, onSuccess, onError }) {
+  const system = `Bạn là trợ lý cập nhật danh sách model API Anthropic Claude.
+Hãy dùng web_search để tra cứu trang chính thức https://platform.claude.com/docs/en/about-claude/models/overview
+và liệt kê các model Claude hiện đang khả dụng qua API (Haiku, Sonnet, Opus đời mới nhất).
+
+QUAN TRỌNG: Chỉ trả về DUY NHẤT một JSON array hợp lệ, KHÔNG markdown, KHÔNG \`\`\`json, KHÔNG preamble.
+Mỗi phần tử có cấu trúc chính xác:
+{
+  "id": "model-api-id-chính-thức",
+  "label": "Tên hiển thị ngắn (vd: 'Opus 4.8')",
+  "badge": "Nhãn ngắn 1-2 từ (vd: 'Mạnh nhất' / 'Khuyên dùng' / 'Nhanh')",
+  "desc": "Mô tả 1 dòng tiếng Việt về điểm mạnh"
+}
+
+Sắp xếp từ nhẹ → nặng (Haiku → Sonnet → Opus). Chỉ kê các model đang available trên API.`;
+
+  const user = `Tra cứu và liệt kê toàn bộ model Claude API hiện tại (2025-2026) từ docs Anthropic. Chỉ trả JSON array.`;
+
+  try {
+    onLog && onLog("🔍 Đang tra cứu docs Anthropic...");
+    const { text, searchCount } = await callClaudeWithSearch(system, user, {
+      model, effort, maxTokens: 8000,
+    });
+    onLog && onLog(`✓ Đã web_search ${searchCount} lần. Đang parse JSON...`);
+
+    // Trích JSON array từ text (có thể có ký tự thừa quanh)
+    let clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    // Trim đến `[` đầu và `]` cuối nếu có text rác
+    const firstBracket = clean.indexOf("[");
+    const lastBracket  = clean.lastIndexOf("]");
+    if (firstBracket >= 0 && lastBracket > firstBracket) {
+      clean = clean.slice(firstBracket, lastBracket + 1);
+    }
+    const parsed = JSON.parse(clean);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      throw new Error("Response không phải JSON array hợp lệ");
+    }
+
+    // Bồi đắp metadata UI (màu sắc + thinking flag)
+    const enriched = parsed.map((m, i) => ({
+      id:       String(m.id || "").trim(),
+      label:    String(m.label || m.id || `Model ${i+1}`).trim(),
+      badge:    String(m.badge || "").trim() || "Model",
+      desc:     String(m.desc || "").trim() || "Model Claude API",
+      color:    MODEL_COLORS[i % MODEL_COLORS.length],
+      thinking: typeof m.supports_thinking === "boolean"
+        ? m.supports_thinking
+        : inferThinkingSupport(m.id),
+    })).filter(m => m.id.length > 0);
+
+    if (enriched.length === 0) throw new Error("Không có model hợp lệ sau khi parse");
+
+    onLog && onLog(`✅ Đã cập nhật ${enriched.length} model.`);
+    onSuccess && onSuccess(enriched);
+    return enriched;
+  } catch (err) {
+    onLog && onLog(`❌ Lỗi: ${err.message}`);
+    onError && onError(err);
+    throw err;
+  }
+}
+
+
 // ─── MODEL SELECTOR SUB-COMPONENT ───────────────────────────────────────────
-function ModelSelector({ modelId, onModel, thinkingOn, onThinking, effortId, onEffort }) {
+function ModelSelector({ models, modelId, onModel, thinkingOn, onThinking, effortId, onEffort, onUpdateModels, updatingModels, updateLog }) {
   const [effortOpen, setEffortOpen] = useState(false);
-  const cur        = MODELS.find(m => m.id === modelId) || MODELS[1];
-  const supportsThinking = cur.thinking;
+  const cur        = models.find(m => m.id === modelId) || models[Math.min(1, models.length - 1)] || models[0];
+  const supportsThinking = cur?.thinking || false;
   const curEffort  = EFFORT_LEVELS.find(e => e.id === effortId) || EFFORT_LEVELS[2];
 
   return (
@@ -735,10 +871,61 @@ function ModelSelector({ modelId, onModel, thinkingOn, onThinking, effortId, onE
 
       {/* ── Model list ── */}
       <div style={{ padding: "10px 14px 6px", borderBottom: "1px solid #f0eeec" }}>
-        <div style={{ fontSize: 10, fontWeight: 600, color: "#a8a29e", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6, fontFamily: FONT }}>
-          Model
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          marginBottom: 6,
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "#a8a29e", letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: FONT }}>
+            Model ({models.length})
+          </div>
+          <button
+            onClick={onUpdateModels}
+            disabled={updatingModels}
+            title="Cập nhật danh sách model qua web_search"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 5,
+              padding: "3px 9px", borderRadius: 6,
+              fontSize: 11, fontFamily: FONT,
+              border: "1px solid #d6d3d1",
+              background: updatingModels ? "#fafaf9" : "#fff",
+              color: updatingModels ? "#a8a29e" : "#44403c",
+              cursor: updatingModels ? "not-allowed" : "pointer",
+              fontWeight: 500,
+              transition: "all 0.12s",
+            }}
+          >
+            {updatingModels ? (
+              <>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style={{
+                  animation: "spin 1s linear infinite",
+                }}>
+                  <circle cx="12" cy="12" r="10" stroke="#a8a29e" strokeWidth="3" strokeDasharray="32" strokeLinecap="round"/>
+                </svg>
+                Đang cập nhật...
+              </>
+            ) : (
+              <>🔄 Cập nhật</>
+            )}
+          </button>
         </div>
-        {MODELS.map(m => {
+        {/* Spinner keyframes */}
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+        {/* Update log (collapsible) */}
+        {updateLog && (
+          <div style={{
+            margin: "0 0 6px",
+            padding: "6px 10px", borderRadius: 6,
+            background: updateLog.startsWith("❌") ? "#fff1f2" : updateLog.startsWith("✅") ? "#f0fdf4" : "#f0f9ff",
+            border: `1px solid ${updateLog.startsWith("❌") ? "#fecaca" : updateLog.startsWith("✅") ? "#bbf7d0" : "#bae6fd"}`,
+            color: updateLog.startsWith("❌") ? "#b91c1c" : updateLog.startsWith("✅") ? "#15803d" : "#0c4a6e",
+            fontSize: 11, fontFamily: FONT,
+          }}>
+            {updateLog}
+          </div>
+        )}
+
+        {models.map(m => {
           const active = modelId === m.id;
           return (
             <div
@@ -757,8 +944,18 @@ function ModelSelector({ modelId, onModel, thinkingOn, onThinking, effortId, onE
                 {/* Color dot */}
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: m.color, flexShrink: 0 }} />
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: active ? 600 : 400, color: active ? m.color : "#1c1917", fontFamily: FONT }}>
+                  <div style={{ fontSize: 13, fontWeight: active ? 600 : 400, color: active ? m.color : "#1c1917", fontFamily: FONT, display: "flex", alignItems: "center", gap: 6 }}>
                     {m.label}
+                    {m.badge && (
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, padding: "1px 5px",
+                        borderRadius: 4, background: active ? m.color : "#e7e5e4",
+                        color: active ? "#fff" : "#78716c",
+                      }}>{m.badge}</span>
+                    )}
+                    {m.thinking && (
+                      <span style={{ fontSize: 9, color: "#7c3aed" }} title="Hỗ trợ Extended Thinking">💭</span>
+                    )}
                   </div>
                   <div style={{ fontSize: 11, color: "#78716c", fontFamily: FONT }}>{m.desc}</div>
                 </div>
@@ -888,17 +1085,16 @@ function GenerateSection({
   generating, onGenerating,
   updateLog, onUpdateLog, updating, onUpdating,
   onSuggestionsUpdate, onToast,
+  // Model state — lifted to App
+  models, modelId, onModelId,
+  thinkingOn, onThinkingOn, effortId, onEffortId,
+  onUpdateModels, updatingModels, modelsUpdateLog,
 }) {
   const [genError, setGenError]       = useState("");
   const [updateError, setUpdateError] = useState("");
   const [rawStream, setRawStream]     = useState("");
 
-  // ── NeuroForge model state ──
-  const [modelId,    setModelId]    = useState("claude-sonnet-4-6");
-  const [thinkingOn, setThinkingOn] = useState(false);
-  const [effortId,   setEffortId]   = useState("medium");
-
-  const curModel  = MODELS.find(m => m.id === modelId) || MODELS[1];
+  const curModel  = models.find(m => m.id === modelId) || models[Math.min(1, models.length - 1)] || models[0];
   const curEffort = EFFORT_LEVELS.find(e => e.id === effortId) || EFFORT_LEVELS[1];
   const canGenerate = totalSelected > 0 || freeformIdea.trim().length > 20;
 
@@ -1044,9 +1240,13 @@ Trả về JSON object (KHÔNG markdown, KHÔNG preamble):
 
         {/* NeuroForge Model Selector */}
         <ModelSelector
-          modelId={modelId}      onModel={setModelId}
-          thinkingOn={thinkingOn} onThinking={setThinkingOn}
-          effortId={effortId}    onEffort={setEffortId}
+          models={models}
+          modelId={modelId}        onModel={onModelId}
+          thinkingOn={thinkingOn}  onThinking={onThinkingOn}
+          effortId={effortId}      onEffort={onEffortId}
+          onUpdateModels={onUpdateModels}
+          updatingModels={updatingModels}
+          updateLog={modelsUpdateLog}
         />
 
         {/* Streaming preview */}
@@ -1372,9 +1572,46 @@ export default function App() {
   const [updateLog, setUpdateLog]   = useState("");
   const [updating, setUpdating]     = useState(false);
 
+  // ── Model state (lifted from GenerateSection) ──
+  const [models,         setModels]         = useState(DEFAULT_MODELS);
+  const [modelId,        setModelId]        = useState("claude-sonnet-4-6");
+  const [thinkingOn,     setThinkingOn]     = useState(false);
+  const [effortId,       setEffortId]       = useState("medium");
+  const [updatingModels, setUpdatingModels] = useState(false);
+  const [modelsUpdateLog, setModelsUpdateLog] = useState("");
+
   const toast = useToast();
   const mdFileRef = useRef();
   const cpImportRef = useRef();
+
+  // ── Handler: Cập nhật danh sách model qua web_search ──
+  const handleUpdateModels = useCallback(async () => {
+    setUpdatingModels(true);
+    setModelsUpdateLog("🔍 Đang tra cứu docs Anthropic...");
+    try {
+      await runUpdateModels({
+        model: modelId,
+        effort: "medium",
+        onLog: (msg) => setModelsUpdateLog(msg),
+        onSuccess: (newModels) => {
+          setModels(newModels);
+          // Nếu modelId hiện tại không còn trong list mới → chọn model thứ 2 (thường là Sonnet)
+          if (!newModels.find(m => m.id === modelId)) {
+            const fallback = newModels[Math.min(1, newModels.length - 1)] || newModels[0];
+            if (fallback) setModelId(fallback.id);
+          }
+          toast.show(`Đã cập nhật ${newModels.length} model ✓`);
+          // Tự ẩn log sau 5s
+          setTimeout(() => setModelsUpdateLog(""), 5000);
+        },
+        onError: (err) => {
+          toast.show("Cập nhật model thất bại");
+        },
+      });
+    } finally {
+      setUpdatingModels(false);
+    }
+  }, [modelId, toast]);
 
   // ── Load checkpoint from storage ──
   useEffect(() => {
@@ -1385,6 +1622,10 @@ export default function App() {
         if (data.mdFileName)    setMdFileName(data.mdFileName);
         if (data.checkpointName) setCheckpointName(data.checkpointName);
         if (data.blueprint)      setBlueprint(data.blueprint);
+        if (Array.isArray(data.models) && data.models.length) setModels(data.models);
+        if (data.modelId)        setModelId(data.modelId);
+        if (typeof data.thinkingOn === "boolean") setThinkingOn(data.thinkingOn);
+        if (data.effortId)       setEffortId(data.effortId);
         if (data.selections) {
           const restored = {};
           for (const [k, v] of Object.entries(data.selections)) {
@@ -1408,8 +1649,9 @@ export default function App() {
       freeformIdea, mdFileContent, mdFileName,
       selections: serialized, checkpointName,
       blueprint: blueprint || null,
+      models, modelId, thinkingOn, effortId,
     });
-  }, [loaded, freeformIdea, mdFileContent, mdFileName, selections, checkpointName, blueprint]);
+  }, [loaded, freeformIdea, mdFileContent, mdFileName, selections, checkpointName, blueprint, models, modelId, thinkingOn, effortId]);
 
   // ── Handle suggestions update from Claude ──
   const handleSuggestionsUpdate = useCallback((parsed) => {
@@ -1428,15 +1670,29 @@ export default function App() {
 
   // ── Import MD file ──
   const handleMdImport = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setMdFileContent(ev.target.result);
-      setMdFileName(file.name);
-      toast.show(`Import "${file.name}" thành công`);
-    };
-    reader.readAsText(file);
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    let loaded = 0;
+    const results = new Array(files.length);
+    files.forEach((file, i) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        results[i] = ev.target.result;
+        loaded++;
+        if (loaded === files.length) {
+          const combined = results
+            .map((txt, j) => `=== ${files[j].name} ===\n${txt}`)
+            .join("\n\n");
+          const label = files.length === 1
+            ? files[0].name
+            : `${files.length} files (${files.map(f => f.name).join(", ")})`;
+          setMdFileContent(combined);
+          setMdFileName(label);
+          toast.show(`Import ${files.length > 1 ? `${files.length} files` : `"${files[0].name}"`} thành công`);
+        }
+      };
+      reader.readAsText(file);
+    });
     e.target.value = "";
   };
 
@@ -1479,6 +1735,10 @@ export default function App() {
         if (d.mdFileName)     setMdFileName(d.mdFileName);
         if (d.checkpointName) setCheckpointName(d.checkpointName);
         if (d.blueprint)      setBlueprint(d.blueprint);
+        if (Array.isArray(d.models) && d.models.length) setModels(d.models);
+        if (d.modelId)        setModelId(d.modelId);
+        if (typeof d.thinkingOn === "boolean") setThinkingOn(d.thinkingOn);
+        if (d.effortId)       setEffortId(d.effortId);
         if (d.selections) {
           const restored = Object.fromEntries(
             SUGGESTION_TREE.map(s => [s.id, new Set()])
@@ -1614,16 +1874,34 @@ export default function App() {
               onDragOver={e => { e.preventDefault(); }}
               onDrop={e => {
                 e.preventDefault();
-                const file = e.dataTransfer.files[0];
-                if (file && file.name.endsWith(".md")) {
+                const files = Array.from(e.dataTransfer.files)
+                  .filter(f => f.name.endsWith(".md") || f.name.endsWith(".txt"));
+                if (!files.length) return;
+                let loaded = 0;
+                const results = new Array(files.length);
+                files.forEach((file, i) => {
                   const reader = new FileReader();
-                  reader.onload = (ev) => { setMdFileContent(ev.target.result); setMdFileName(file.name); };
+                  reader.onload = (ev) => {
+                    results[i] = ev.target.result;
+                    loaded++;
+                    if (loaded === files.length) {
+                      const combined = results
+                        .map((txt, j) => `=== ${files[j].name} ===\n${txt}`)
+                        .join("\n\n");
+                      const label = files.length === 1
+                        ? files[0].name
+                        : `${files.length} files (${files.map(f => f.name).join(", ")})`;
+                      setMdFileContent(combined);
+                      setMdFileName(label);
+                      toast.show(`Import ${files.length > 1 ? `${files.length} files` : `"${files[0].name}"`} thành công`);
+                    }
+                  };
                   reader.readAsText(file);
-                }
+                });
               }}
             >
               <div style={{ fontSize: 24, marginBottom: 6 }}>📁</div>
-              <div>Click hoặc kéo thả file .md vào đây</div>
+              <div>Click hoặc kéo thả nhiều file .md / .txt vào đây</div>
             </div>
           )}
         </div>
@@ -1664,6 +1942,13 @@ export default function App() {
         onUpdating={setUpdating}
         onSuggestionsUpdate={handleSuggestionsUpdate}
         onToast={toast.show}
+        models={models}
+        modelId={modelId}        onModelId={setModelId}
+        thinkingOn={thinkingOn}  onThinkingOn={setThinkingOn}
+        effortId={effortId}      onEffortId={setEffortId}
+        onUpdateModels={handleUpdateModels}
+        updatingModels={updatingModels}
+        modelsUpdateLog={modelsUpdateLog}
       />
 
       {/* ── Blueprint Result ── */}
@@ -1676,7 +1961,7 @@ export default function App() {
       )}
 
       {/* Hidden file inputs */}
-      <input ref={mdFileRef} type="file" accept=".md,.txt" style={{ display: "none" }} onChange={handleMdImport} />
+      <input ref={mdFileRef} type="file" accept=".md,.txt" multiple style={{ display: "none" }} onChange={handleMdImport} />
       <input ref={cpImportRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleCpImport} />
 
       {/* Toast */}
