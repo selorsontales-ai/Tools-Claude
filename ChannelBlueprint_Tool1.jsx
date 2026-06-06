@@ -650,34 +650,48 @@ const EFFORT_LEVELS = [
   { id: "max",    label: "Max",    isDefault: false, tok: "~16K", budget: 16000 },
 ];
 
-// ─── CLAUDE API — config-aware, thinking-aware ───────────────────────────────
+// ─── CLAUDE API — chuẩn Claude.md (effort + adaptive thinking) ──────────────
+// Tham chiếu: Claude.md mục 3, 4, 5.
+// - Effort qua `output_config.effort`, KHÔNG qua budget_tokens.
+// - Thinking adaptive: chỉ `{ type: "enabled" }`, KHÔNG budget_tokens, KHÔNG temperature.
+// - Bắt buộc header `anthropic-beta: effort-2025-11-24`.
 async function callClaude(system, user, onChunk, cfg = {}) {
   const {
     model        = "claude-sonnet-4-6",
-    maxTokens    = 1000,
+    maxTokens    = 16000,
     thinkingOn   = false,
-    effortBudget = 5000,
+    effortBudget = 5000,    // legacy field — chỉ dùng để suy ra effort string bên dưới
+    effort,                 // ưu tiên nếu caller truyền thẳng "low"|"medium"|"high"|"max"
   } = cfg;
 
-  const effectiveMax = thinkingOn
-    ? Math.min(effortBudget + 8192, 16000)
-    : maxTokens;
+  // Map budget cũ → effort string (giữ tương thích với UI hiện tại)
+  const effortFromBudget = (b) => {
+    if (b <= 1500)  return "low";
+    if (b <= 6000)  return "medium";
+    if (b <= 11000) return "high";
+    return "max";
+  };
+  const effortLevel = effort || effortFromBudget(effortBudget);
 
   const body = {
     model,
-    max_tokens: effectiveMax,
+    max_tokens: maxTokens,
     stream: true,
     system,
     messages: [{ role: "user", content: user }],
+    output_config: { effort: effortLevel },
   };
   if (thinkingOn) {
-    body.thinking    = { type: "enabled", budget_tokens: effortBudget };
-    body.temperature = 1; // required for extended thinking
+    // Adaptive thinking cho model 4.6/4.7/4.8 — KHÔNG budget_tokens, KHÔNG temperature
+    body.thinking = { type: "enabled" };
   }
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "anthropic-beta": "effort-2025-11-24",
+    },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -697,15 +711,17 @@ async function callClaude(system, user, onChunk, cfg = {}) {
       if (d === "[DONE]") continue;
       try {
         const j = JSON.parse(d);
-        // skip thinking_block_delta — chỉ stream text
-        if (j?.delta?.type === "thinking_block_delta") continue;
-        const delta = j?.delta?.text || "";
-        if (delta) { full += delta; onChunk(full); }
+        // CHỈ lấy text_delta — bỏ thinking_delta để không lẫn nội dung suy nghĩ vào output
+        if (j?.delta?.type === "text_delta") {
+          const delta = j.delta.text || "";
+          if (delta) { full += delta; onChunk(full); }
+        }
       } catch {}
     }
   }
   return full;
 }
+
 
 // ─── MODEL SELECTOR SUB-COMPONENT ───────────────────────────────────────────
 function ModelSelector({ modelId, onModel, thinkingOn, onThinking, effortId, onEffort }) {
