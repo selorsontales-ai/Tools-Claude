@@ -125,12 +125,22 @@ File JSON chứa danh sách prompts từ Tool 2. Mỗi prompt phải có trườ
 - `text_generation` → Tool 3 sẽ gọi Claude API để sinh nội dung (script, title, SEO description...)
 - `image_generation` → Tool 3 chỉ hiển thị prompt + nút Copy để user mang đi Midjourney/Leonardo/DALL-E
 
-### 4.3 Output
+### 4.3 Bảng Điều Khiển Nâng Cao (Advanced Settings Panel)
+Đây là tính năng cốt lõi của Tool 3, cho phép can thiệp sâu vào quá trình thực thi:
+- **UI Động (Dynamic UI):** Khi bật chế độ nâng cao, UI sẽ tự động biến đổi tùy theo loại prompt (category).
+  - Ví dụ Kịch bản: Hiện thanh trượt (Độ chuyên sâu, Nhịp điệu, Độ hài hước), Nút bật/tắt (Có Call-to-action).
+  - Ví dụ Tiêu đề SEO: Hiện thanh trượt (Mức độ Clickbait), Nút bật/tắt (Bắt buộc chứa số liệu, Dùng CAPS LOCK).
+  - Ví dụ Thumbnail: Hiện Dropdown (Tỷ lệ ảnh 16:9/9:16), Thanh trượt (Stylize/Chaos).
+- **Context Injection (Nạp Tài Liệu):**
+  - **Rules (.md/.txt):** Nạp rules cá nhân ép AI viết đúng văn phong (ghi đè mặc định).
+  - **Reference Files (.md/.txt):** Nạp tài liệu tham khảo để AI lấy dữ liệu thật viết bài, chống ảo giác (hallucination).
+
+### 4.4 Output
 - Kịch bản video hoàn chỉnh (Markdown)
 - Tiêu đề + mô tả SEO
 - Clipboard manager cho thumbnail prompts
 
-### 4.4 Ảnh hưởng đến Tool 2
+### 4.5 Ảnh hưởng đến Tool 2
 > **Quan trọng:** Tool 2 khi export JSON phải phân loại rõ `type` của từng prompt. Đây là yêu cầu thiết kế dữ liệu, không phải yêu cầu UI.
 
 ---

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Upload, Download, Sparkles, Cpu, Brain, ChevronDown, Check, X, Trash2,
   RefreshCw, Factory, Loader2, AlertTriangle, FolderInput, FileJson,
-  FileText, Image as ImageIcon, Copy, Plus, Minus, Package, Ban,
+  FileText, Image as ImageIcon, Copy, Plus, Minus, Package, Ban, Layers, BookCheck,
 } from "lucide-react";
 
 /* ════════════════════════════════════════════════════════════════════
@@ -130,6 +130,11 @@ function extractJSONArray(raw) {
 }
 const norm = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
 const uid = () => Math.random().toString(36).slice(2, 9);
+const SET_PALETTE = ["#7c3aed", "#0d9488", "#d97706", "#db2777", "#2563eb", "#65a30d", "#dc2626", "#0891b2"];
+function setColor(setId) {
+  let h = 0; for (let i = 0; i < setId.length; i++) h = (h * 31 + setId.charCodeAt(i)) >>> 0;
+  return SET_PALETTE[h % SET_PALETTE.length];
+}
 
 /* ════════════════════════════════════════════════════════════════════
    MAIN
@@ -151,7 +156,16 @@ export default function PromptFactoryTool2() {
   const [quantities, setQuantities] = useState(() =>
     Object.fromEntries(PROMPT_TYPES.map(t => [t.key, t.key === "video_script" ? 5 : 0])));
 
-  // kho prompt đã sinh: [{ id, type, category, categoryLabel, title, prompt }]
+  // ── Sync Mode (đồng bộ các loại theo bộ cùng chủ đề) ──
+  const [syncMode, setSyncMode]         = useState(false);
+  const [syncQty, setSyncQty]           = useState(5);
+  const [syncSelected, setSyncSelected] = useState(() =>
+    Object.fromEntries(PROMPT_TYPES.map(t => [t.key, ["video_script", "seo_title", "thumbnail"].includes(t.key)])));
+
+  // ── Rules cá nhân (chỉ thị tối cao cho AI) ──
+  const [customRules, setCustomRules] = useState(null); // { name, content }
+
+  // kho prompt đã sinh: [{ id, type, category, categoryLabel, title, prompt, setId? }]
   const [prompts, setPrompts] = useState([]);
 
   // generation runtime
@@ -166,6 +180,7 @@ export default function PromptFactoryTool2() {
   const ctxRef  = useRef(null);
   const cpRef   = useRef(null);
   const dupRef  = useRef(null);
+  const rulesRef = useRef(null);
   const cancelRef = useRef(false);
 
   const showToast = useCallback((msg) => {
@@ -179,7 +194,7 @@ export default function PromptFactoryTool2() {
       try { await window.storage?.set(STORAGE_KEY, JSON.stringify(buildCheckpoint())); } catch {}
     }, 800);
     return () => clearTimeout(t);
-  }, [context, prompts, quantities, models, modelId, thinkingOn, effortId, cpName]);
+  }, [context, prompts, quantities, syncMode, syncQty, syncSelected, customRules, models, modelId, thinkingOn, effortId, cpName]);
 
   useEffect(() => {
     (async () => {
@@ -196,6 +211,8 @@ export default function PromptFactoryTool2() {
       version: CHECKPOINT_VERSION, savedAt: new Date().toISOString(), name: cpName,
       config: { modelId, thinkingOn, effortId }, models,
       context, quantities, prompts,
+      sync: { syncMode, syncQty, syncSelected },
+      customRules,
     };
   }
   function applyCheckpoint(cp, silent) {
@@ -208,6 +225,12 @@ export default function PromptFactoryTool2() {
     }
     if (cp.context !== undefined) setContext(cp.context);
     if (cp.quantities) setQuantities(q => ({ ...q, ...cp.quantities }));
+    if (cp.sync) {
+      setSyncMode(!!cp.sync.syncMode);
+      if (typeof cp.sync.syncQty === "number") setSyncQty(cp.sync.syncQty);
+      if (cp.sync.syncSelected) setSyncSelected(s => ({ ...s, ...cp.sync.syncSelected }));
+    }
+    if (cp.customRules !== undefined) setCustomRules(cp.customRules);
     if (Array.isArray(cp.prompts)) setPrompts(cp.prompts);
     if (cp.name) setCpName(cp.name);
     if (!silent) showToast("Đã nạp checkpoint");
@@ -280,97 +303,61 @@ export default function PromptFactoryTool2() {
     reader.readAsText(file); e.target.value = "";
   }
 
+  /* ── nạp Rules cá nhân (.md/.txt) — ghi đè file cũ ── */
+  function handleRulesImport(e) {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = String(ev.target.result || "").trim();
+      if (!content) { setErr("File rules rỗng."); return; }
+      setCustomRules({ name: file.name, content });
+      showToast(`Đã nạp Rules: ${file.name}`);
+    };
+    reader.readAsText(file); e.target.value = "";
+  }
+
   /* ── chỉnh số lượng ── */
   function setQty(key, v) {
     const n = Math.max(0, Math.min(50, Math.round(Number(v) || 0)));
     setQuantities(q => ({ ...q, [key]: n }));
   }
-  const totalToGen = Object.values(quantities).reduce((a, b) => a + b, 0);
+  function toggleSyncType(key) {
+    setSyncSelected(s => ({ ...s, [key]: !s[key] }));
+  }
+  // tổng số prompt sẽ sinh — khác nhau theo mode
+  const selectedSyncTypes = PROMPT_TYPES.filter(t => syncSelected[t.key]);
+  const totalToGen = syncMode
+    ? syncQty * selectedSyncTypes.length
+    : Object.values(quantities).reduce((a, b) => a + b, 0);
 
-  /* ── SINH HÀNG LOẠT — theo lô từng loại ── */
+  /* ── SINH PROMPT — rẽ nhánh theo syncMode ── */
   async function runGenerate() {
     if (genBusy) return;
-    if (!totalToGen) { setErr("Hãy chọn số lượng cho ít nhất một loại prompt."); return; }
+    if (!totalToGen) {
+      setErr(syncMode ? "Hãy đặt số lượng > 0 và tích ít nhất một loại." : "Hãy chọn số lượng cho ít nhất một loại prompt.");
+      return;
+    }
     setGenBusy(true); setErr(""); setGenStream(""); cancelRef.current = false;
 
     const ch = context?.channel || {};
     const channelCtx = JSON.stringify(ch, null, 2);
     const bpCtx = context?.blueprint ? JSON.stringify(context.blueprint, null, 2) : "(không có)";
 
+    // Rules cá nhân — chỉ thị tối cao, nhúng nguyên văn nếu có
+    const rulesBlock = customRules?.content
+      ? `\n# CHỈ THỊ TỐI CAO (RULES CÁ NHÂN — TUÂN THỦ NGHIÊM NGẶT VỀ VĂN PHONG, CẤU TRÚC, ĐỊNH DẠNG)\n` +
+        `Người dùng đã nạp file rules "${customRules.name}". Mọi prompt bạn tạo PHẢI tuân theo nguyên văn dưới đây, ` +
+        `kể cả khi mâu thuẫn với mặc định:\n"""\n${customRules.content}\n"""\n`
+      : "";
+
     let totalUsage = { input_tokens: 0, output_tokens: 0 };
     let stoppedEarly = false;
 
     try {
-      for (const t of PROMPT_TYPES) {
-        if (cancelRef.current) break;
-        const want = quantities[t.key] || 0;
-        if (!want) continue;
-
-        setGenLog(`Đang sinh ${want} × ${t.label}…`);
-        setGenStream("");
-
-        // danh sách đã có cùng loại → chống trùng
-        const existingSame = prompts.filter(p => p.category === t.key).map(p => p.title);
-        const existingTitles = prompts.map(p => p.title);
-
-        const system =
-          `Bạn là chuyên gia sản xuất nội dung YouTube. Nhiệm vụ: tạo ${want} PROMPT thuộc loại "${t.label}".\n` +
-          `Mô tả loại prompt này: ${t.brief}\n\n` +
-          `QUAN TRỌNG — đây là "máy đẻ prompt": bạn tạo ra các PROMPT (chỉ thị để một AI khác thực thi sau), ` +
-          `KHÔNG tạo nội dung cuối cùng.\n` +
-          `Trả về DUY NHẤT một JSON ARRAY, KHÔNG giải thích, KHÔNG markdown fences. Mỗi phần tử:\n` +
-          `{ "title": "<tiêu đề ngắn gọn, tiếng Việt, để người dùng nhận diện>", "prompt": "<nội dung prompt đầy đủ>" }\n` +
-          (t.type === "image_generation"
-            ? `Vì là prompt ẢNH: trường "prompt" viết bằng TIẾNG ANH, chi tiết, sẵn sàng dán vào Midjourney/Leonardo/DALL-E.\n`
-            : `Trường "prompt" viết bằng tiếng Việt, rõ ràng, đầy đủ ngữ cảnh để AI thực thi tốt.\n`) +
-          `Các tiêu đề PHẢI khác nhau và KHÔNG trùng với danh sách đã có dưới đây.`;
-
-        const user =
-          `# Thông tin kênh\n${channelCtx}\n\n` +
-          `# Blueprint (Tool 1)\n${bpCtx}\n\n` +
-          `# Tiêu đề ĐÃ CÓ (cùng loại — TUYỆT ĐỐI không lặp lại)\n` +
-          `${existingSame.length ? existingSame.map(x => "- " + x).join("\n") : "(chưa có)"}\n\n` +
-          `# Tiêu đề đã có (loại khác — tránh trùng ý)\n` +
-          `${existingTitles.length ? existingTitles.slice(0, 40).map(x => "- " + x).join("\n") : "(chưa có)"}\n\n` +
-          `Hãy tạo đúng ${want} prompt loại "${t.label}".`;
-
-        // cấp token rộng theo số lượng để tránh cắt giữa JSON
-        const maxTok = Math.min(2000 + want * 700, 16000);
-        const { text, usage, stopReason } = await callClaude(system, user, (p) => setGenStream(p), {
-          model: modelId, thinkingOn, effortId, maxTokens: maxTok,
-        });
-        if (usage) {
-          totalUsage.input_tokens  += usage.input_tokens  || 0;
-          totalUsage.output_tokens += usage.output_tokens || 0;
-        }
-
-        const arr = extractJSONArray(text);
-        if (!arr) {
-          setErr(`Lô "${t.label}" trả về không đọc được JSON. Các lô trước đã được giữ lại.`);
-          stoppedEarly = true; break;
-        }
-
-        // chuẩn hoá + lọc trùng (so với toàn kho)
-        setPrompts(prev => {
-          const seen = new Set(prev.map(p => norm(p.title)));
-          const add = [];
-          for (const it of arr) {
-            const title = String(it.title || it.prompt || "").slice(0, 120);
-            if (!title || seen.has(norm(title))) continue;
-            seen.add(norm(title));
-            add.push({
-              id: uid(), type: t.type, category: t.key, categoryLabel: t.label,
-              title, prompt: String(it.prompt || it.text || ""),
-            });
-          }
-          return [...prev, ...add];
-        });
-
-        // chạm trần token giữa lô → cảnh báo + dừng để resume
-        if (stopReason === "max_tokens") {
-          setErr(`Lô "${t.label}" chạm giới hạn token — đã lưu phần sinh được. Bấm "Tạo Prompt" lần nữa để sinh tiếp phần còn thiếu (đã chống trùng).`);
-          stoppedEarly = true; break;
-        }
+      if (syncMode) {
+        stoppedEarly = await runGenerateSync({ channelCtx, bpCtx, rulesBlock, totalUsage });
+      } else {
+        stoppedEarly = await runGenerateNormal({ channelCtx, bpCtx, rulesBlock, totalUsage });
       }
 
       const p = PRICING[modelId] || PRICING["claude-sonnet-4-6"];
@@ -378,13 +365,147 @@ export default function PromptFactoryTool2() {
       setLastUsage({ ...totalUsage, cost });
       setGenLog(stoppedEarly ? "Dừng sớm — đã lưu checkpoint tự động." : "Hoàn tất sinh prompt.");
       if (!stoppedEarly && !cancelRef.current) showToast("Đã sinh xong prompt");
-      if (cancelRef.current) { setGenLog("Đã huỷ — phần sinh được vẫn giữ lại."); }
+      if (cancelRef.current) setGenLog("Đã huỷ — phần sinh được vẫn giữ lại.");
     } catch (e) {
       setErr(String(e.message || e));
       setGenLog("Lỗi — các lô trước vẫn được giữ lại.");
     } finally {
       setGenBusy(false); setGenStream("");
     }
+  }
+
+  /* ── chế độ THƯỜNG: sinh theo lô từng loại (giữ nguyên logic cũ) ── */
+  async function runGenerateNormal({ channelCtx, bpCtx, rulesBlock, totalUsage }) {
+    for (const t of PROMPT_TYPES) {
+      if (cancelRef.current) break;
+      const want = quantities[t.key] || 0;
+      if (!want) continue;
+
+      setGenLog(`Đang sinh ${want} × ${t.label}…`);
+      setGenStream("");
+
+      const existingSame = prompts.filter(p => p.category === t.key).map(p => p.title);
+      const existingTitles = prompts.map(p => p.title);
+
+      const system =
+        `Bạn là chuyên gia sản xuất nội dung YouTube. Nhiệm vụ: tạo ${want} PROMPT thuộc loại "${t.label}".\n` +
+        `Mô tả loại prompt này: ${t.brief}\n\n` +
+        `QUAN TRỌNG — đây là "máy đẻ prompt": bạn tạo ra các PROMPT (chỉ thị để một AI khác thực thi sau), ` +
+        `KHÔNG tạo nội dung cuối cùng.\n` +
+        `Trả về DUY NHẤT một JSON ARRAY, KHÔNG giải thích, KHÔNG markdown fences. Mỗi phần tử:\n` +
+        `{ "title": "<tiêu đề ngắn gọn, tiếng Việt, để người dùng nhận diện>", "prompt": "<nội dung prompt đầy đủ>" }\n` +
+        (t.type === "image_generation"
+          ? `Vì là prompt ẢNH: trường "prompt" viết bằng TIẾNG ANH, chi tiết, sẵn sàng dán vào Midjourney/Leonardo/DALL-E.\n`
+          : `Trường "prompt" viết bằng tiếng Việt, rõ ràng, đầy đủ ngữ cảnh để AI thực thi tốt.\n`) +
+        `Các tiêu đề PHẢI khác nhau và KHÔNG trùng với danh sách đã có dưới đây.` +
+        rulesBlock;
+
+      const user =
+        `# Thông tin kênh\n${channelCtx}\n\n# Blueprint (Tool 1)\n${bpCtx}\n\n` +
+        `# Tiêu đề ĐÃ CÓ (cùng loại — TUYỆT ĐỐI không lặp lại)\n` +
+        `${existingSame.length ? existingSame.map(x => "- " + x).join("\n") : "(chưa có)"}\n\n` +
+        `# Tiêu đề đã có (loại khác — tránh trùng ý)\n` +
+        `${existingTitles.length ? existingTitles.slice(0, 40).map(x => "- " + x).join("\n") : "(chưa có)"}\n\n` +
+        `Hãy tạo đúng ${want} prompt loại "${t.label}".`;
+
+      const maxTok = Math.min(2000 + want * 700, 16000);
+      const { text, usage, stopReason } = await callClaude(system, user, (p) => setGenStream(p), {
+        model: modelId, thinkingOn, effortId, maxTokens: maxTok,
+      });
+      if (usage) { totalUsage.input_tokens += usage.input_tokens || 0; totalUsage.output_tokens += usage.output_tokens || 0; }
+
+      const arr = extractJSONArray(text);
+      if (!arr) { setErr(`Lô "${t.label}" trả về không đọc được JSON. Các lô trước đã được giữ lại.`); return true; }
+
+      setPrompts(prev => {
+        const seen = new Set(prev.map(p => norm(p.title)));
+        const add = [];
+        for (const it of arr) {
+          const title = String(it.title || it.prompt || "").slice(0, 120);
+          if (!title || seen.has(norm(title))) continue;
+          seen.add(norm(title));
+          add.push({ id: uid(), type: t.type, category: t.key, categoryLabel: t.label, title, prompt: String(it.prompt || it.text || "") });
+        }
+        return [...prev, ...add];
+      });
+
+      if (stopReason === "max_tokens") {
+        setErr(`Lô "${t.label}" chạm giới hạn token — đã lưu phần sinh được. Bấm "Tạo Prompt" lần nữa để sinh tiếp (đã chống trùng).`);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /* ── chế độ ĐỒNG BỘ: 1 lời gọi, sinh N "bộ" cùng chủ đề ── */
+  async function runGenerateSync({ channelCtx, bpCtx, rulesBlock, totalUsage }) {
+    const types = selectedSyncTypes;
+    if (!types.length) { setErr("Hãy tích ít nhất một loại để đồng bộ."); return true; }
+
+    setGenLog(`Đang sinh ${syncQty} bộ đồng bộ (${types.map(t => t.label).join(", ")})…`);
+    setGenStream("");
+
+    const existingTitles = [...new Set(prompts.map(p => p.title))];
+    // mô tả từng loại + ngôn ngữ yêu cầu
+    const typeSpec = types.map(t =>
+      `  "${t.key}": "<${t.type === "image_generation" ? "prompt ảnh, TIẾNG ANH, chi tiết cho Midjourney/Leonardo" : "prompt, tiếng Việt, đầy đủ ngữ cảnh"}; mục đích: ${t.brief}>"`
+    ).join(",\n");
+
+    const system =
+      `Bạn là chuyên gia sản xuất nội dung YouTube. Nhiệm vụ: tạo ${syncQty} BỘ prompt ĐỒNG BỘ.\n` +
+      `Mỗi "bộ" xoay quanh MỘT chủ đề/video duy nhất, và chứa đầy đủ các loại prompt dưới đây — ` +
+      `tất cả phải ĂN KHỚP với nhau theo cùng chủ đề của bộ đó (kịch bản, tiêu đề, thumbnail… cùng nói về một video).\n` +
+      `Đây là "máy đẻ prompt": tạo PROMPT (chỉ thị cho AI khác thực thi sau), KHÔNG tạo nội dung cuối.\n\n` +
+      `Trả về DUY NHẤT một JSON ARRAY gồm ${syncQty} phần tử, KHÔNG giải thích, KHÔNG markdown fences. ` +
+      `Mỗi phần tử có dạng:\n` +
+      `{\n  "videoTitle": "<tên video/chủ đề chung của cả bộ, tiếng Việt>",\n  "items": {\n${typeSpec}\n  }\n}\n` +
+      `Các "videoTitle" PHẢI khác nhau và không trùng danh sách đã có.` +
+      rulesBlock;
+
+    const user =
+      `# Thông tin kênh\n${channelCtx}\n\n# Blueprint (Tool 1)\n${bpCtx}\n\n` +
+      `# videoTitle ĐÃ CÓ (tránh trùng)\n` +
+      `${existingTitles.length ? existingTitles.slice(0, 40).map(x => "- " + x).join("\n") : "(chưa có)"}\n\n` +
+      `Hãy tạo đúng ${syncQty} bộ, mỗi bộ gồm các loại: ${types.map(t => t.key).join(", ")}.`;
+
+    // token: mỗi bộ ~ số loại × 600 + đệm
+    const maxTok = Math.min(2500 + syncQty * types.length * 600, 16000);
+    const { text, usage, stopReason } = await callClaude(system, user, (p) => setGenStream(p), {
+      model: modelId, thinkingOn, effortId, maxTokens: maxTok,
+    });
+    if (usage) { totalUsage.input_tokens += usage.input_tokens || 0; totalUsage.output_tokens += usage.output_tokens || 0; }
+
+    const arr = extractJSONArray(text);
+    if (!arr) { setErr("Kết quả đồng bộ không đọc được JSON. Không có gì bị mất, hãy thử lại."); return true; }
+
+    // làm phẳng: mỗi bộ → nhiều prompt cùng title (videoTitle) + chung setId
+    setPrompts(prev => {
+      const seenTitles = new Set(prev.map(p => norm(p.title)));
+      const add = [];
+      for (const set of arr) {
+        const videoTitle = String(set.videoTitle || set.title || "").slice(0, 120);
+        if (!videoTitle || seenTitles.has(norm(videoTitle))) continue;
+        seenTitles.add(norm(videoTitle));
+        const setId = uid();
+        const items = set.items || set;
+        for (const t of types) {
+          const val = items[t.key];
+          if (!val) continue;
+          add.push({
+            id: uid(), setId, type: t.type, category: t.key, categoryLabel: t.label,
+            title: videoTitle,              // chung cả bộ để dễ nhận biết
+            prompt: String(val),
+          });
+        }
+      }
+      return [...prev, ...add];
+    });
+
+    if (stopReason === "max_tokens") {
+      setErr("Chạm giới hạn token — một số bộ cuối có thể thiếu. Giảm số lượng hoặc bấm tạo thêm (đã chống trùng theo videoTitle).");
+      return true;
+    }
+    return false;
   }
 
   function cancelGenerate() { cancelRef.current = true; }
@@ -415,12 +536,13 @@ export default function PromptFactoryTool2() {
       exportedAt: new Date().toISOString(),
       channel: context?.channel || null,
       prompts: prompts.map(p => ({
-        id: p.id, type: p.type, category: p.category, categoryLabel: p.categoryLabel,
+        id: p.id, setId: p.setId || null,
+        type: p.type, category: p.category, categoryLabel: p.categoryLabel,
         title: p.title, prompt: p.prompt,
       })),
     };
     download(`${cpName || "prompts"}.json`, JSON.stringify(payload, null, 2), "application/json");
-    showToast("Đã export JSON (kèm type)");
+    showToast("Đã export JSON (kèm type + setId)");
   }
   function exportMD() {
     if (!prompts.length) { setErr("Chưa có prompt để export."); return; }
@@ -557,27 +679,81 @@ export default function PromptFactoryTool2() {
 
         {/* B — CẤU HÌNH LÔ */}
         <Section icon={<Package size={15} />} title="B · Chọn loại & số lượng" tag="Offline">
-          {PROMPT_TYPES.map(t => (
-            <div key={t.key} style={S.qtyRow}>
-              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {t.icon === "image" ? <ImageIcon size={15} color={t.color} /> : <FileText size={15} color={t.color} />}
-                <span style={{ fontSize: 13, fontWeight: 500 }}>{t.label}</span>
-                <span style={{ ...S.typeTag, color: t.color, borderColor: t.color + "55", background: t.color + "0f" }}>{t.type}</span>
+          {/* Toggle Sync Mode */}
+          <div style={S.syncToggleRow}>
+            <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <Layers size={15} color={syncMode ? "#7c3aed" : "#a8a29e"} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: syncMode ? "#6d28d9" : "#57534e" }}>Đồng bộ các loại Prompt</span>
+              <span style={{ fontSize: 11, color: "#a8a29e" }}>{syncMode ? "tạo theo bộ cùng chủ đề" : "tạo riêng từng loại"}</span>
+            </span>
+            <span onClick={() => setSyncMode(v => !v)} style={{ ...S.toggleTrack, width: 30, height: 16, cursor: "pointer", background: syncMode ? "#7c3aed" : "#d6d3d1" }}>
+              <span style={{ ...S.toggleKnob, width: 12, height: 12, transform: syncMode ? "translateX(14px)" : "translateX(0)" }} />
+            </span>
+          </div>
+
+          {/* Thẻ Rules cá nhân */}
+          {customRules ? (
+            <div style={S.rulesCard}>
+              <span style={{ display: "flex", alignItems: "center", gap: 7, flex: 1, minWidth: 0 }}>
+                <BookCheck size={15} color="#b45309" />
+                <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: "#92400e" }}>Rules cá nhân đang áp dụng</span>
+                  <span style={{ fontSize: 11, color: "#a16207", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{customRules.name} · {customRules.content.length} ký tự</span>
+                </span>
               </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <button style={S.stepBtn} onClick={() => setQty(t.key, (quantities[t.key] || 0) - 1)}><Minus size={13} /></button>
-                <input style={S.qtyInput} value={quantities[t.key] || 0} onChange={e => setQty(t.key, e.target.value)} />
-                <button style={S.stepBtn} onClick={() => setQty(t.key, (quantities[t.key] || 0) + 1)}><Plus size={13} /></button>
-              </span>
+              <button style={S.btnGhostSm} onClick={() => { setCustomRules(null); showToast("Đã gỡ Rules"); }}><Trash2 size={12} /> Gỡ</button>
             </div>
-          ))}
+          ) : null}
+
+          {/* Cấu hình theo mode */}
+          {syncMode ? (
+            <div style={S.syncBox}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: "#57534e" }}>Số bộ cần tạo</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <button style={S.stepBtn} onClick={() => setSyncQty(q => Math.max(1, q - 1))}><Minus size={13} /></button>
+                  <input style={S.qtyInput} value={syncQty} onChange={e => setSyncQty(Math.max(1, Math.min(30, Math.round(Number(e.target.value) || 1))))} />
+                  <button style={S.stepBtn} onClick={() => setSyncQty(q => Math.min(30, q + 1))}><Plus size={13} /></button>
+                </span>
+                <span style={{ fontSize: 11, color: "#a8a29e" }}>mỗi bộ gồm các loại đã tích</span>
+              </div>
+              {PROMPT_TYPES.map(t => {
+                const on = !!syncSelected[t.key];
+                return (
+                  <div key={t.key} onClick={() => toggleSyncType(t.key)} style={{ ...S.checkRow, ...(on ? S.checkRowOn : {}) }}>
+                    <span style={{ ...S.checkBox, ...(on ? { background: t.color, borderColor: t.color } : {}) }}>{on && <Check size={12} color="#fff" />}</span>
+                    {t.icon === "image" ? <ImageIcon size={15} color={t.color} /> : <FileText size={15} color={t.color} />}
+                    <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{t.label}</span>
+                    <span style={{ ...S.typeTag, color: t.color, borderColor: t.color + "55", background: t.color + "0f" }}>{t.type}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            PROMPT_TYPES.map(t => (
+              <div key={t.key} style={S.qtyRow}>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {t.icon === "image" ? <ImageIcon size={15} color={t.color} /> : <FileText size={15} color={t.color} />}
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{t.label}</span>
+                  <span style={{ ...S.typeTag, color: t.color, borderColor: t.color + "55", background: t.color + "0f" }}>{t.type}</span>
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <button style={S.stepBtn} onClick={() => setQty(t.key, (quantities[t.key] || 0) - 1)}><Minus size={13} /></button>
+                  <input style={S.qtyInput} value={quantities[t.key] || 0} onChange={e => setQty(t.key, e.target.value)} />
+                  <button style={S.stepBtn} onClick={() => setQty(t.key, (quantities[t.key] || 0) + 1)}><Plus size={13} /></button>
+                </span>
+              </div>
+            ))
+          )}
+
           <div style={S.genBar}>
             <button style={{ ...S.btnPrimary, opacity: genBusy ? 0.6 : 1 }} disabled={genBusy} onClick={runGenerate}>
               {genBusy ? <Loader2 size={15} className="spin" /> : <Sparkles size={15} />}
-              {genBusy ? "Đang sinh…" : `Tạo ${totalToGen} Prompt`}
+              {genBusy ? "Đang sinh…" : syncMode ? `Tạo ${syncQty} bộ (${totalToGen} prompt)` : `Tạo ${totalToGen} Prompt`}
             </button>
             {genBusy && <button style={S.btnGhost} onClick={cancelGenerate}><Ban size={14} /> Huỷ</button>}
             <button style={S.btnGhost} onClick={() => dupRef.current?.click()}><Upload size={14} /> Nạp prompt cũ</button>
+            <button style={S.btnGhost} onClick={() => rulesRef.current?.click()}><BookCheck size={14} /> Nạp Rules (.md)</button>
             <span style={S.apiTag}>TỐN API</span>
           </div>
           {(genBusy || genLog) && (
@@ -602,10 +778,11 @@ export default function PromptFactoryTool2() {
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {prompts.map(p => (
-                  <div key={p.id} style={S.promptCard}>
+                  <div key={p.id} style={{ ...S.promptCard, ...(p.setId ? { borderLeft: `3px solid ${setColor(p.setId)}` } : {}) }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
                       {p.type === "image_generation" ? <ImageIcon size={13} color="#7c3aed" /> : <FileText size={13} color="#0d9488" />}
                       <span style={{ fontSize: 12.5, fontWeight: 600, flex: 1 }}>{p.title}</span>
+                      {p.setId && <span style={{ ...S.setTag, background: setColor(p.setId) + "1a", color: setColor(p.setId) }}>BỘ</span>}
                       <span style={{ ...S.typeTagSm, color: p.type === "image_generation" ? "#7c3aed" : "#0d9488" }}>{p.categoryLabel}</span>
                       <Copy size={13} style={{ cursor: "pointer", color: "#a8a29e" }} onClick={() => copyPrompt(p.prompt)} />
                       <Trash2 size={13} style={{ cursor: "pointer", color: "#d6d3d1" }} onClick={() => deletePrompt(p.id)} />
@@ -622,6 +799,7 @@ export default function PromptFactoryTool2() {
       <input ref={ctxRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleContextImport} />
       <input ref={cpRef}  type="file" accept=".json" style={{ display: "none" }} onChange={handleCpImport} />
       <input ref={dupRef} type="file" accept=".json,.md,.txt" style={{ display: "none" }} onChange={handleDupImport} />
+      <input ref={rulesRef} type="file" accept=".md,.txt" style={{ display: "none" }} onChange={handleRulesImport} />
 
       <div style={{ ...S.toast, opacity: toast.vis ? 1 : 0, transform: toast.vis ? "translateY(0)" : "translateY(8px)" }}>{toast.msg}</div>
       <style>{`.spin{animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
@@ -720,6 +898,13 @@ const S = {
   dropZone: { border: "2px dashed #e7e5e4", borderRadius: 10, padding: "26px 16px", textAlign: "center", color: "#78716c", fontSize: 13, cursor: "pointer", background: "#fafaf9" },
   ctxCard: { border: "1px solid #ccfbf1", background: "#f0fdfa", borderRadius: 9, padding: 12 },
   qtyRow: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f5f5f4" },
+  syncToggleRow: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 11px", background: "#faf9ff", border: "1px solid #ede9fe", borderRadius: 9, marginBottom: 12 },
+  rulesCard: { display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 9, marginBottom: 12 },
+  syncBox: { background: "#fafaf9", border: "1px solid #f0eeec", borderRadius: 9, padding: 12, marginBottom: 4 },
+  checkRow: { display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", borderRadius: 8, border: "1px solid transparent", cursor: "pointer", userSelect: "none" },
+  checkRowOn: { background: "#fff", border: "1px solid #e7e5e4" },
+  checkBox: { width: 18, height: 18, borderRadius: 5, border: "1.5px solid #d6d3d1", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: "#fff" },
+  setTag: { fontSize: 9, fontWeight: 700, borderRadius: 4, padding: "1px 5px", letterSpacing: "0.04em" },
   typeTag: { fontSize: 9.5, fontWeight: 600, border: "1px solid", borderRadius: 5, padding: "1px 6px", fontFamily: MONO },
   typeTagSm: { fontSize: 10, fontWeight: 600 },
   stepBtn: { width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #e7e5e4", borderRadius: 7, background: "#fff", cursor: "pointer", color: "#57534e" },
