@@ -69,3 +69,8 @@
   - Module 1 handles Channel Blueprint import, AI Fill for channel settings, and checkpointing.
   - Module 2 handles prompt generation in batches, anti-duplication, and JSON export with `type` labels.
 
+
+## 2026-06-07 — Tool 2 Bug Fix (Export JSON White Screen)
+- **Bug**: Clicking Export JSON or Export Checkpoint resulted in a blank white screen inside the Artifact iframe across both Tool 1 and Tool 2.
+- **Fix in Tool 2**: Claude implemented a highly robust fix by wrapping the download logic in a 	ry...catch block, appending the <a> tag to the DOM, and using a 4000ms setTimeout before revoking the object URL.
+- **Status**: Code successfully updated and pushed to Git.
