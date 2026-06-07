@@ -291,12 +291,21 @@ export default function ChannelStudioTool2() {
     e.target.value = "";
   }
   function exportCheckpoint() {
-    const blob = new Blob([JSON.stringify(buildCheckpoint(), null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `${checkpointName || "channel-studio"}.json`;
-    a.click(); URL.revokeObjectURL(url);
-    showToast("Đã export checkpoint");
+    try {
+      const json = JSON.stringify(buildCheckpoint(), null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${checkpointName || "channel-studio"}.json`;
+      document.body.appendChild(a);   // vài trình duyệt cần thẻ nằm trong DOM
+      a.click();
+      a.remove();
+      // revoke TRỄ cho chắc; bọc try/catch để lỗi không bao giờ làm sập UI
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      showToast("Đã export checkpoint");
+    } catch (e) {
+      setErr("Không tạo được checkpoint: " + String(e.message || e));
+    }
   }
 
   /* ── field helpers ── */

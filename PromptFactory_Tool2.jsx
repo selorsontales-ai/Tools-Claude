@@ -441,14 +441,29 @@ export default function PromptFactoryTool2() {
     showToast("Đã export Markdown");
   }
   function exportCheckpoint() {
-    download(`${cpName || "prompt-factory"}.checkpoint.json`, JSON.stringify(buildCheckpoint(), null, 2), "application/json");
-    showToast("Đã export checkpoint");
+    try {
+      const json = JSON.stringify(buildCheckpoint(), null, 2);
+      download(`${cpName || "prompt-factory"}.checkpoint.json`, json, "application/json");
+      showToast("Đã export checkpoint");
+    } catch (e) {
+      setErr("Không tạo được checkpoint: " + String(e.message || e));
+    }
   }
   function download(name, content, mime) {
-    const blob = new Blob([content], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = name; a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const blob = new Blob([content], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = name;
+      document.body.appendChild(a);   // một số trình duyệt cần phần tử nằm trong DOM
+      a.click();
+      a.remove();
+      // revoke TRỄ để chắc trình duyệt đã bắt đầu tải; revoke ngay KHÔNG gây crash,
+      // nhưng để trễ cho chắc, và bọc try/catch để không bao giờ làm sập UI.
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } catch (e) {
+      setErr("Tải file thất bại: " + String(e.message || e));
+    }
   }
 
   /* ── nút Cập nhật model ── */
